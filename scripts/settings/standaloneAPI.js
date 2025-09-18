@@ -722,11 +722,7 @@ export function ext_exportAllTablesAsJson() {
                 ) : []
             );
 
-            exportData[table.uid] = {
-                uid: table.uid,
-                name: table.name,
-                content: sanitizedContent
-            };
+            exportData[table.name] = sanitizedContent;
         } catch (error) {
             console.error(`[Memory Enhancement] 导出表格 ${table.name} (UID: ${table.uid}) 时出错:`, error);
         }

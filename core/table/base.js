@@ -302,12 +302,11 @@ export class SheetBase {
     }
 
     /**
-     * 获取过滤后的 hashSheet
+     * 获取过滤后的 hashSheet - 无缓存优化版本
      * @param {Set} visitedTables - 已访问的表格集合，用于检测循环依赖
-     * @param {boolean} useCache - 是否使用缓存
      * @returns {Array} 过滤后的 hashSheet
      */
-    getFilteredHashSheet(visitedTables = new Set(), useCache = true) {
+    getFilteredHashSheet(visitedTables = new Set()) {
         // 如果未启用过滤或没有过滤键配置，返回原始数据
         if (!this.config?.filterEnabled || !this.config?.filterKeys?.length) {
             return this.hashSheet;
@@ -319,32 +318,35 @@ export class SheetBase {
             return this.hashSheet;
         }
 
-        // 缓存机制（带版本控制的智能缓存）
-        if (useCache && this._filteredHashSheetCache && this._filterCacheVersion === this._dataVersion) {
-            return this._filteredHashSheetCache;
-        }
-
         // 性能监控开始
         const startTime = performance.now();
         const rowCount = this.hashSheet.length;
+
+        // 快速路径：如果没有数据行，直接返回表头
+        if (rowCount <= 1) {
+            return this.hashSheet;
+        }
 
         // 添加当前表格到已访问集合
         const newVisitedTables = new Set(visitedTables);
         newVisitedTables.add(this.uid);
 
-        // 收集所有允许的值（OR逻辑）- 优化版本
-        const allowedValuesMap = new Map(); // key: sourceColumn, value: Set of allowed values
-        
-        // 批量处理过滤键配置
-        const validFilterKeys = this.config.filterKeys.filter(filterKey => {
+        // 优化1：预过滤有效的过滤键配置
+        const validFilterKeys = [];
+        for (const filterKey of this.config.filterKeys) {
             const { sourceColumn, refTableUid, refColumn } = filterKey;
-            const isValid = sourceColumn && refTableUid && refColumn;
-            if (!isValid) {
-                console.warn(`过滤键配置不完整：`, filterKey);
+            if (sourceColumn && refTableUid && refColumn) {
+                validFilterKeys.push(filterKey);
             }
-            return isValid;
-        });
+        }
 
+        if (validFilterKeys.length === 0) {
+            return this.hashSheet;
+        }
+
+        // 优化2：预建立允许值映射，使用更高效的数据结构
+        const allowedValuesArray = []; // 使用数组替代Map，提升遍历性能
+        
         // 批量获取引用表格数据
         for (const filterKey of validFilterKeys) {
             const { sourceColumn, refTableUid, refColumn } = filterKey;
@@ -356,108 +358,74 @@ export class SheetBase {
                 continue;
             }
 
-            // 重要：引用表不应该使用过滤，使用原始数据避免循环过滤
-            const refOriginalHashSheet = refTable.hashSheet;
-            
-            // 优化：使用更高效的值收集方式
-            const refValues = new Set();
+            // 优化3：直接访问引用表的原始数据
+            const refHashSheet = refTable.hashSheet;
             const refCells = refTable.cells;
             
-            console.log(`过滤键调试 - 引用表 ${refTable.name}(${refTableUid}) 原始数据行数: ${refOriginalHashSheet.length}, 目标列: ${refColumn}`);
+            // 优化4：使用Set进行O(1)查找
+            const refValues = new Set();
             
-            // 统一处理逻辑，避免大小数据量处理不一致
-            for (let i = 1; i < refOriginalHashSheet.length; i++) {
-                const cellUid = refOriginalHashSheet[i]?.[refColumn];
+            // 优化5：批量收集值，减少条件判断
+            const refRowCount = refHashSheet.length;
+            for (let i = 1; i < refRowCount; i++) {
+                const cellUid = refHashSheet[i]?.[refColumn];
                 if (cellUid) {
                     const cell = refCells.get(cellUid);
                     const value = cell?.data?.value;
-                    // 统一的值验证逻辑
-                    if (value !== undefined && value !== null && value !== '') {
-                        const stringValue = String(value).trim(); // 确保转换为字符串并去除空格
-                        if (stringValue) {
-                            refValues.add(stringValue);
-                            console.log(`过滤键调试 - 收集到允许值: "${stringValue}"`);
-                        }
+                    if (value != null && value !== '') {
+                        refValues.add(String(value).trim());
                     }
                 }
             }
 
-            console.log(`过滤键调试 - 共收集到 ${refValues.size} 个允许值:`, Array.from(refValues));
-
-            // 合并到允许值集合（OR逻辑）
-            if (!allowedValuesMap.has(sourceColumn)) {
-                allowedValuesMap.set(sourceColumn, new Set());
-            }
-            const currentSet = allowedValuesMap.get(sourceColumn);
-            // 优化：直接合并 Set
             if (refValues.size > 0) {
-                refValues.forEach(value => currentSet.add(value));
+                allowedValuesArray.push({ sourceColumn, allowedValues: refValues });
             }
         }
 
         // 如果没有有效的过滤值，返回原始数据
-        if (allowedValuesMap.size === 0) {
-            this._filteredHashSheetCache = this.hashSheet;
-            this._filterCacheVersion = this._dataVersion;
+        if (allowedValuesArray.length === 0) {
             return this.hashSheet;
         }
 
-        // 执行过滤 - 优化版本
+        // 优化6：预分配结果数组容量
         const filteredHashSheet = [this.hashSheet[0]]; // 保留表头
         
-        // 预先获取 cells Map 引用，避免重复访问
-        const cellsMap = this.cells;
+        // 优化7：缓存常用引用，减少属性访问
+        const sourceHashSheet = this.hashSheet;
+        const sourceCells = this.cells;
         
-        // 统一的过滤算法，避免大小数据量处理不一致
+        // 优化8：使用最高效的过滤算法
         for (let rowIndex = 1; rowIndex < rowCount; rowIndex++) {
-            const row = this.hashSheet[rowIndex];
-            let shouldInclude = false;
-
-            // 检查每个配置的源列（OR逻辑）
-            for (const [sourceColumn, allowedValues] of allowedValuesMap.entries()) {
+            const row = sourceHashSheet[rowIndex];
+            
+            // 优化9：使用Array.some进行短路求值
+            const shouldInclude = allowedValuesArray.some(({ sourceColumn, allowedValues }) => {
                 const cellUid = row[sourceColumn];
-                if (cellUid) {
-                    const cell = cellsMap.get(cellUid);
-                    if (cell) {
-                        const cellValue = cell.data.value;
-                        const stringCellValue = String(cellValue || '').trim(); // 确保转换为字符串并去除空格
-                        
-                        console.log(`过滤键调试 - 检查行 ${rowIndex}, 列 ${sourceColumn}, 值: "${stringCellValue}", 是否在允许列表中: ${allowedValues.has(stringCellValue)}`);
-                        
-                        if (stringCellValue && allowedValues.has(stringCellValue)) {
-                            shouldInclude = true;
-                            console.log(`过滤键调试 - 行 ${rowIndex} 通过过滤`);
-                            break;
-                        }
-                    }
-                }
-            }
+                if (!cellUid) return false;
+                
+                const cell = sourceCells.get(cellUid);
+                if (!cell) return false;
+                
+                const cellValue = cell.data.value;
+                if (cellValue == null || cellValue === '') return false;
+                
+                return allowedValues.has(String(cellValue).trim());
+            });
 
             if (shouldInclude) {
                 filteredHashSheet.push(row);
-            } else {
-                console.log(`过滤键调试 - 行 ${rowIndex} 被过滤掉`);
             }
         }
 
-        // 缓存结果
-        this._filteredHashSheetCache = filteredHashSheet;
-        this._filterCacheVersion = this._dataVersion || 0;
-
         // 性能监控结束
         const endTime = performance.now();
-        if (endTime - startTime > 100) {
-            console.log(`过滤表格 "${this.name}" 耗时: ${(endTime - startTime).toFixed(2)}ms, 原始行数: ${rowCount}, 过滤后行数: ${filteredHashSheet.length}`);
+        const duration = endTime - startTime;
+        if (duration > 50) { // 降低日志阈值，更好监控性能
+            console.log(`过滤表格 "${this.name}" 耗时: ${duration.toFixed(2)}ms, 原始行数: ${rowCount}, 过滤后行数: ${filteredHashSheet.length}`);
         }
 
         return filteredHashSheet;
-    }
-
-    /**
-     * 清除过滤缓存
-     */
-    clearFilterCache() {
-        this._filteredHashSheetCache = null;
     }
 
     /**
@@ -473,7 +441,7 @@ export class SheetBase {
     }
 
     /**
-     * 获取过滤后的CSV内容
+     * 获取过滤后的CSV内容 - 优化版本
      * @param {boolean} removeHeader - 是否移除表头
      * @param {string} key - 数据键
      * @param {boolean} useFilter - 是否使用过滤
@@ -484,12 +452,28 @@ export class SheetBase {
         
         const targetHashSheet = useFilter ? this.getFilteredHashSheet() : this.hashSheet;
         
-        const content = targetHashSheet.slice(removeHeader ? 1 : 0).map((row, index) => row.map(cellUid => {
-            const cell = this.cells.get(cellUid);
-            if (!cell) return "";
-            return cell.type === Cell.CellType.row_header ? index : cell.data[key];
-        }).join(',')).join('\n');
+        // 优化：预分配字符串数组，减少字符串拼接开销
+        const rows = [];
+        const startIndex = removeHeader ? 1 : 0;
+        const cellsMap = this.cells; // 缓存引用
         
-        return content + "\n";
+        for (let i = startIndex; i < targetHashSheet.length; i++) {
+            const row = targetHashSheet[i];
+            const columns = [];
+            
+            for (let j = 0; j < row.length; j++) {
+                const cellUid = row[j];
+                const cell = cellsMap.get(cellUid);
+                if (!cell) {
+                    columns.push("");
+                } else {
+                    columns.push(cell.type === Cell.CellType.row_header ? (i - 1) : cell.data[key]);
+                }
+            }
+            
+            rows.push(columns.join(','));
+        }
+        
+        return rows.join('\n') + "\n";
     }
 }

@@ -1,19 +1,19 @@
-import { APP, BASE, DERIVED, EDITOR, SYSTEM, USER } from './core/manager.js';
-import { openTableRendererPopup, updateSystemMessageTableStatus } from "./scripts/renderer/tablePushToChat.js";
-import { loadSettings } from "./scripts/settings/userExtensionSetting.js";
-import { ext_getAllTables, ext_exportAllTablesAsJson } from './scripts/settings/standaloneAPI.js';
-import { openTableDebugLogPopup } from "./scripts/settings/devConsole.js";
-import { TableTwoStepSummary } from "./scripts/runtime/separateTableUpdate.js";
 import { initTest } from "./components/_fotTest.js";
-import { initAppHeaderTableDrawer, openAppHeaderTableDrawer } from "./scripts/renderer/appHeaderTableBaseDrawer.js";
-import { initRefreshTypeSelector } from './scripts/runtime/absoluteRefresh.js';
-import {refreshTempView, updateTableContainerPosition} from "./scripts/editor/tableTemplateEditView.js";
-import { functionToBeRegistered } from "./services/debugs.js";
-import { parseLooseDict, replaceUserTag } from "./utils/stringUtil.js";
-import {executeTranslation} from "./services/translate.js";
-import applicationFunctionManager from "./services/appFuncManager.js"
-import {SheetBase} from "./core/table/base.js";
+import { APP, BASE, DERIVED, EDITOR, SYSTEM, USER } from './core/manager.js';
+import { SheetBase } from "./core/table/base.js";
 import { Cell } from "./core/table/cell.js";
+import { refreshTempView } from "./scripts/editor/tableTemplateEditView.js";
+import { initAppHeaderTableDrawer, openAppHeaderTableDrawer } from "./scripts/renderer/appHeaderTableBaseDrawer.js";
+import { openTableRendererPopup, updateSystemMessageTableStatus } from "./scripts/renderer/tablePushToChat.js";
+import { initRefreshTypeSelector } from './scripts/runtime/absoluteRefresh.js';
+import { TableTwoStepSummary } from "./scripts/runtime/separateTableUpdate.js";
+import { openTableDebugLogPopup } from "./scripts/settings/devConsole.js";
+import { ext_exportAllTablesAsJson, ext_getAllTables } from './scripts/settings/standaloneAPI.js';
+import { loadSettings } from "./scripts/settings/userExtensionSetting.js";
+import applicationFunctionManager from "./services/appFuncManager.js";
+import { functionToBeRegistered } from "./services/debugs.js";
+import { executeTranslation } from "./services/translate.js";
+import { parseLooseDict, replaceUserTag } from "./utils/stringUtil.js";
 
 
 console.log("______________________记忆插件：开始加载______________________")
@@ -880,6 +880,20 @@ jQuery(async () => {
             EDITOR.error("导出所有表格数据时出错。","",error);
             return "{}"; // 出错时返回空JSON对象
         }
+    });
+    USER.getContext().registerMacro('GET_ORIGIN_TABLES_JSON', () => {
+      try {
+        const jsonData = ext_getOriginalTablesAsJson();
+        if (Object.keys(jsonData).length === 0) {
+          return '{}'; // 如果没有数据，返回一个空的JSON对象
+        }
+        // 返回未过滤的原始JSON字符串
+        return JSON.stringify(jsonData);
+      } catch (error) {
+        console.error('GET_ORIGIN_TABLES_JSON 宏执行出错:', error);
+        EDITOR.error('导出原始表格数据时出错。', '', error);
+        return '{}'; // 出错时返回空JSON对象
+      }
     });
 
     // 设置表格编辑按钮

@@ -784,15 +784,33 @@ async function openFilterKeysEditor(sheet) {
           if (targetTableUid) {
             const targetSheet = availableSheets.find(s => s.uid === targetTableUid);
             if (targetSheet) {
-              const maxTargetCols = targetSheet.hashSheet?.[0]?.length || 10;
-              // 获取目标表格的表头行单元格
-              const targetHeaderCells = targetSheet.getCellsByRowIndex(0);
+              // 确保表格数据已加载
+              if (targetSheet.cellHistory && targetSheet.cellHistory.length > 0 && !targetSheet.cells.size) {
+                targetSheet.loadCells();
+              }
+              
+              let columnHeaders = [];
+              let maxTargetCols = 10;
+              
+              // 直接从hashSheet和cells获取表头信息
+              if (targetSheet.hashSheet && targetSheet.hashSheet.length > 0 && targetSheet.cells) {
+                const headerRow = targetSheet.hashSheet[0];
+                maxTargetCols = headerRow.length;
+                
+                // 遍历表头行，从索引1开始（跳过行头）
+                for (let i = 1; i < headerRow.length; i++) {
+                  const cellUid = headerRow[i];
+                  const cell = targetSheet.cells.get(cellUid);
+                  columnHeaders.push(cell?.data?.value || '');
+                }
+              }
+              
+              // 生成选项
               for (let i = 1; i < maxTargetCols; i++) {
                 const option = document.createElement('option');
                 option.value = i;
-                // 获取目标表格的列头单元格的值
-                const columnHeader = targetHeaderCells[i]?.data?.value?.trim();
-                // 优先显示列名，如果没有列名则显示"列x"
+                // 获取列标题：优先使用获取到的表头值
+                const columnHeader = columnHeaders[i - 1]?.trim();
                 option.textContent = columnHeader || `列 ${i}`;
                 if (key.refColumn === i) option.selected = true;
                 targetColSelect.appendChild(option);

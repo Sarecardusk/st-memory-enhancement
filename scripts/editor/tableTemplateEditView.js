@@ -734,12 +734,13 @@ async function openFilterKeysEditor(sheet) {
         sourceColSelect.style.width = '150px';
         sourceColSelect.style.padding = '5px';
         const maxSourceCols = sheet.hashSheet?.[0]?.length || 10;
+        // 获取表头行的所有单元格
+        const headerCells = sheet.getCellsByRowIndex(0);
         for (let i = 1; i < maxSourceCols; i++) {
           const option = document.createElement('option');
           option.value = i;
-          // 获取列头单元格
-          const columnHeaderCell = sheet.cells.get(sheet.hashSheet?.[0]?.[i]);
-          const columnHeader = columnHeaderCell?.data?.value?.trim();
+          // 获取列头单元格的值
+          const columnHeader = headerCells[i]?.data?.value?.trim();
           // 优先显示列名，如果没有列名则显示"列x"
           option.textContent = columnHeader || `列 ${i}`;
           if (key.sourceColumn === i) option.selected = true;
@@ -784,12 +785,13 @@ async function openFilterKeysEditor(sheet) {
             const targetSheet = availableSheets.find(s => s.uid === targetTableUid);
             if (targetSheet) {
               const maxTargetCols = targetSheet.hashSheet?.[0]?.length || 10;
+              // 获取目标表格的表头行单元格
+              const targetHeaderCells = targetSheet.getCellsByRowIndex(0);
               for (let i = 1; i < maxTargetCols; i++) {
                 const option = document.createElement('option');
                 option.value = i;
-                // 获取目标表格的列头单元格
-                const columnHeaderCell = targetSheet.cells.get(targetSheet.hashSheet?.[0]?.[i]);
-                const columnHeader = columnHeaderCell?.data?.value?.trim();
+                // 获取目标表格的列头单元格的值
+                const columnHeader = targetHeaderCells[i]?.data?.value?.trim();
                 // 优先显示列名，如果没有列名则显示"列x"
                 option.textContent = columnHeader || `列 ${i}`;
                 if (key.refColumn === i) option.selected = true;

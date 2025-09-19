@@ -356,38 +356,33 @@ export class SheetBase {
                 continue;
             }
 
-            // 递归获取引用表的过滤后数据（处理级联）
-            const refFilteredHashSheet = refTable.getFilteredHashSheet(newVisitedTables, useCache);
+            // 重要：引用表不应该使用过滤，使用原始数据避免循环过滤
+            const refOriginalHashSheet = refTable.hashSheet;
             
             // 优化：使用更高效的值收集方式
             const refValues = new Set();
             const refCells = refTable.cells;
             
-            // 对于大数据量，使用更高效的遍历方式
-            if (refFilteredHashSheet.length > 100) {
-                // 大数据量优化：批处理
-                for (let i = 1; i < refFilteredHashSheet.length; i++) {
-                    const cellUid = refFilteredHashSheet[i]?.[refColumn];
-                    if (cellUid) {
-                        const cell = refCells.get(cellUid);
-                        const value = cell?.data?.value;
-                        if (value !== undefined && value !== null && value !== '') {
-                            refValues.add(value);
-                        }
-                    }
-                }
-            } else {
-                // 小数据量：常规处理
-                for (let i = 1; i < refFilteredHashSheet.length; i++) {
-                    const cellUid = refFilteredHashSheet[i]?.[refColumn];
-                    if (cellUid) {
-                        const cell = refCells.get(cellUid);
-                        if (cell?.data?.value) {
-                            refValues.add(cell.data.value);
+            console.log(`过滤键调试 - 引用表 ${refTable.name}(${refTableUid}) 原始数据行数: ${refOriginalHashSheet.length}, 目标列: ${refColumn}`);
+            
+            // 统一处理逻辑，避免大小数据量处理不一致
+            for (let i = 1; i < refOriginalHashSheet.length; i++) {
+                const cellUid = refOriginalHashSheet[i]?.[refColumn];
+                if (cellUid) {
+                    const cell = refCells.get(cellUid);
+                    const value = cell?.data?.value;
+                    // 统一的值验证逻辑
+                    if (value !== undefined && value !== null && value !== '') {
+                        const stringValue = String(value).trim(); // 确保转换为字符串并去除空格
+                        if (stringValue) {
+                            refValues.add(stringValue);
+                            console.log(`过滤键调试 - 收集到允许值: "${stringValue}"`);
                         }
                     }
                 }
             }
+
+            console.log(`过滤键调试 - 共收集到 ${refValues.size} 个允许值:`, Array.from(refValues));
 
             // 合并到允许值集合（OR逻辑）
             if (!allowedValuesMap.has(sourceColumn)) {
@@ -413,47 +408,35 @@ export class SheetBase {
         // 预先获取 cells Map 引用，避免重复访问
         const cellsMap = this.cells;
         
-        // 对于大数据量使用更高效的过滤算法
-        if (rowCount > 100) {
-            // 大数据量优化：使用预编译的过滤器
-            const filters = Array.from(allowedValuesMap.entries());
-            
-            for (let rowIndex = 1; rowIndex < rowCount; rowIndex++) {
-                const row = this.hashSheet[rowIndex];
-                
-                // 快速检查：使用 some 替代 for 循环
-                const shouldInclude = filters.some(([sourceColumn, allowedValues]) => {
-                    const cellUid = row[sourceColumn];
-                    if (!cellUid) return false;
+        // 统一的过滤算法，避免大小数据量处理不一致
+        for (let rowIndex = 1; rowIndex < rowCount; rowIndex++) {
+            const row = this.hashSheet[rowIndex];
+            let shouldInclude = false;
+
+            // 检查每个配置的源列（OR逻辑）
+            for (const [sourceColumn, allowedValues] of allowedValuesMap.entries()) {
+                const cellUid = row[sourceColumn];
+                if (cellUid) {
                     const cell = cellsMap.get(cellUid);
-                    return cell && allowedValues.has(cell.data.value);
-                });
-
-                if (shouldInclude) {
-                    filteredHashSheet.push(row);
-                }
-            }
-        } else {
-            // 小数据量：常规处理
-            for (let rowIndex = 1; rowIndex < rowCount; rowIndex++) {
-                const row = this.hashSheet[rowIndex];
-                let shouldInclude = false;
-
-                // 检查每个配置的源列（OR逻辑）
-                for (const [sourceColumn, allowedValues] of allowedValuesMap.entries()) {
-                    const cellUid = row[sourceColumn];
-                    if (cellUid) {
-                        const cell = cellsMap.get(cellUid);
-                        if (cell && allowedValues.has(cell.data.value)) {
+                    if (cell) {
+                        const cellValue = cell.data.value;
+                        const stringCellValue = String(cellValue || '').trim(); // 确保转换为字符串并去除空格
+                        
+                        console.log(`过滤键调试 - 检查行 ${rowIndex}, 列 ${sourceColumn}, 值: "${stringCellValue}", 是否在允许列表中: ${allowedValues.has(stringCellValue)}`);
+                        
+                        if (stringCellValue && allowedValues.has(stringCellValue)) {
                             shouldInclude = true;
+                            console.log(`过滤键调试 - 行 ${rowIndex} 通过过滤`);
                             break;
                         }
                     }
                 }
+            }
 
-                if (shouldInclude) {
-                    filteredHashSheet.push(row);
-                }
+            if (shouldInclude) {
+                filteredHashSheet.push(row);
+            } else {
+                console.log(`过滤键调试 - 行 ${rowIndex} 被过滤掉`);
             }
         }
 

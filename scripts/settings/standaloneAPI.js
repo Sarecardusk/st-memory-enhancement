@@ -690,10 +690,12 @@ export function ext_getAllTables() {
  * - **功能**: 导出所有表格为一个 JSON 对象，格式与 '范例表格.json' 类似。
  * - **使用场景**: 用于将当前所有表格的状态和数据导出为一个单一的 JSON 文件。
  * - **返回值**: 返回一个 JSON 对象，键是表格的 UID，值是表格的完整配置和数据。
+ * - **过滤**: 默认应用过滤键规则，仅导出符合过滤条件的数据
  *
+ * @param {boolean} useFilter - 是否使用过滤（默认为true）
  * @returns {Object}
  */
-export function ext_exportAllTablesAsJson() {
+export function ext_exportAllTablesAsJson(useFilter = true) {
     // 最终、最稳妥的方案：确保输入给 JSON.stringify 的数据是纯净的。
 
     const { piece } = BASE.getLastSheetsPiece();
@@ -707,12 +709,22 @@ export function ext_exportAllTablesAsJson() {
         return {};
     }
 
+    // 在导出前清除所有表格的过滤缓存（如果使用过滤）
+    if (useFilter) {
+        tables.forEach(table => {
+            if (table.clearFilterCache) {
+                table.clearFilterCache();
+            }
+        });
+    }
+
     const exportData = {};
     tables.forEach(table => {
         if (!table.enable) return; // 跳过禁用的表格
 
         try {
-            const rawContent = table.getContent(true) || [];
+            // 使用过滤参数获取内容
+            const rawContent = table.getContent(true, useFilter) || [];
 
             // 深度清洗，确保所有单元格都是字符串类型。
             // 这是防止因 undefined、null 或其他非字符串类型导致 JSON.stringify 行为异常的关键。
@@ -737,4 +749,17 @@ export function ext_exportAllTablesAsJson() {
         console.error("[Memory Enhancement] 最终JSON序列化失败:", e);
         return {}; // 发生意外时返回空对象
     }
+}
+
+/**
+ * @description
+ * - **功能**: 导出所有表格的原始数据为 JSON 对象，不应用任何过滤。
+ * - **使用场景**: 当需要获取完整的、未经过滤的表格数据时使用。
+ * - **返回值**: 返回一个 JSON 对象，包含所有表格的完整原始数据。
+ *
+ * @returns {Object}
+ */
+export function ext_getOriginalTablesAsJson() {
+    // 调用 ext_exportAllTablesAsJson 函数，但不使用过滤
+    return ext_exportAllTablesAsJson(false);
 }

@@ -51,6 +51,9 @@ export class SheetBase {
             skipTop: false,                     // 用于标记是否跳过表头
             selectedCustomStyleKey: '',       // 用于存储选中的自定义样式，当selectedCustomStyleUid没有值时，使用默认样式
             customStyles: {'自定义样式': {...customStyleConfig}},                 // 用于存储自定义样式
+            // 过滤键配置
+            filterEnabled: false,              // 是否启用过滤
+            filterKeys: []                     // 过滤键配置数组 [{sourceColumn: 1, refTableUid: 'sheet_xxx', refColumn: 1}]
         }
 
         // 临时属性
@@ -296,5 +299,214 @@ export class SheetBase {
             return cell ? cell.data.value : '';
         });
         return header;
+    }
+
+    /**
+     * 获取过滤后的 hashSheet
+     * @param {Set} visitedTables - 已访问的表格集合，用于检测循环依赖
+     * @param {boolean} useCache - 是否使用缓存
+     * @returns {Array} 过滤后的 hashSheet
+     */
+    getFilteredHashSheet(visitedTables = new Set(), useCache = true) {
+        // 如果未启用过滤或没有过滤键配置，返回原始数据
+        if (!this.config?.filterEnabled || !this.config?.filterKeys?.length) {
+            return this.hashSheet;
+        }
+
+        // 检测循环依赖
+        if (visitedTables.has(this.uid)) {
+            console.warn(`检测到循环依赖：表格 ${this.name} (${this.uid})`);
+            return this.hashSheet;
+        }
+
+        // 缓存机制（带版本控制的智能缓存）
+        if (useCache && this._filteredHashSheetCache && this._filterCacheVersion === this._dataVersion) {
+            return this._filteredHashSheetCache;
+        }
+
+        // 性能监控开始
+        const startTime = performance.now();
+        const rowCount = this.hashSheet.length;
+
+        // 添加当前表格到已访问集合
+        const newVisitedTables = new Set(visitedTables);
+        newVisitedTables.add(this.uid);
+
+        // 收集所有允许的值（OR逻辑）- 优化版本
+        const allowedValuesMap = new Map(); // key: sourceColumn, value: Set of allowed values
+        
+        // 批量处理过滤键配置
+        const validFilterKeys = this.config.filterKeys.filter(filterKey => {
+            const { sourceColumn, refTableUid, refColumn } = filterKey;
+            const isValid = sourceColumn && refTableUid && refColumn;
+            if (!isValid) {
+                console.warn(`过滤键配置不完整：`, filterKey);
+            }
+            return isValid;
+        });
+
+        // 批量获取引用表格数据
+        for (const filterKey of validFilterKeys) {
+            const { sourceColumn, refTableUid, refColumn } = filterKey;
+            
+            // 获取引用表格
+            const refTable = this.getTableByUid(refTableUid);
+            if (!refTable) {
+                console.warn(`未找到引用表格：${refTableUid}`);
+                continue;
+            }
+
+            // 递归获取引用表的过滤后数据（处理级联）
+            const refFilteredHashSheet = refTable.getFilteredHashSheet(newVisitedTables, useCache);
+            
+            // 优化：使用更高效的值收集方式
+            const refValues = new Set();
+            const refCells = refTable.cells;
+            
+            // 对于大数据量，使用更高效的遍历方式
+            if (refFilteredHashSheet.length > 100) {
+                // 大数据量优化：批处理
+                for (let i = 1; i < refFilteredHashSheet.length; i++) {
+                    const cellUid = refFilteredHashSheet[i]?.[refColumn];
+                    if (cellUid) {
+                        const cell = refCells.get(cellUid);
+                        const value = cell?.data?.value;
+                        if (value !== undefined && value !== null && value !== '') {
+                            refValues.add(value);
+                        }
+                    }
+                }
+            } else {
+                // 小数据量：常规处理
+                for (let i = 1; i < refFilteredHashSheet.length; i++) {
+                    const cellUid = refFilteredHashSheet[i]?.[refColumn];
+                    if (cellUid) {
+                        const cell = refCells.get(cellUid);
+                        if (cell?.data?.value) {
+                            refValues.add(cell.data.value);
+                        }
+                    }
+                }
+            }
+
+            // 合并到允许值集合（OR逻辑）
+            if (!allowedValuesMap.has(sourceColumn)) {
+                allowedValuesMap.set(sourceColumn, new Set());
+            }
+            const currentSet = allowedValuesMap.get(sourceColumn);
+            // 优化：直接合并 Set
+            if (refValues.size > 0) {
+                refValues.forEach(value => currentSet.add(value));
+            }
+        }
+
+        // 如果没有有效的过滤值，返回原始数据
+        if (allowedValuesMap.size === 0) {
+            this._filteredHashSheetCache = this.hashSheet;
+            this._filterCacheVersion = this._dataVersion;
+            return this.hashSheet;
+        }
+
+        // 执行过滤 - 优化版本
+        const filteredHashSheet = [this.hashSheet[0]]; // 保留表头
+        
+        // 预先获取 cells Map 引用，避免重复访问
+        const cellsMap = this.cells;
+        
+        // 对于大数据量使用更高效的过滤算法
+        if (rowCount > 100) {
+            // 大数据量优化：使用预编译的过滤器
+            const filters = Array.from(allowedValuesMap.entries());
+            
+            for (let rowIndex = 1; rowIndex < rowCount; rowIndex++) {
+                const row = this.hashSheet[rowIndex];
+                
+                // 快速检查：使用 some 替代 for 循环
+                const shouldInclude = filters.some(([sourceColumn, allowedValues]) => {
+                    const cellUid = row[sourceColumn];
+                    if (!cellUid) return false;
+                    const cell = cellsMap.get(cellUid);
+                    return cell && allowedValues.has(cell.data.value);
+                });
+
+                if (shouldInclude) {
+                    filteredHashSheet.push(row);
+                }
+            }
+        } else {
+            // 小数据量：常规处理
+            for (let rowIndex = 1; rowIndex < rowCount; rowIndex++) {
+                const row = this.hashSheet[rowIndex];
+                let shouldInclude = false;
+
+                // 检查每个配置的源列（OR逻辑）
+                for (const [sourceColumn, allowedValues] of allowedValuesMap.entries()) {
+                    const cellUid = row[sourceColumn];
+                    if (cellUid) {
+                        const cell = cellsMap.get(cellUid);
+                        if (cell && allowedValues.has(cell.data.value)) {
+                            shouldInclude = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (shouldInclude) {
+                    filteredHashSheet.push(row);
+                }
+            }
+        }
+
+        // 缓存结果
+        this._filteredHashSheetCache = filteredHashSheet;
+        this._filterCacheVersion = this._dataVersion || 0;
+
+        // 性能监控结束
+        const endTime = performance.now();
+        if (endTime - startTime > 100) {
+            console.log(`过滤表格 "${this.name}" 耗时: ${(endTime - startTime).toFixed(2)}ms, 原始行数: ${rowCount}, 过滤后行数: ${filteredHashSheet.length}`);
+        }
+
+        return filteredHashSheet;
+    }
+
+    /**
+     * 清除过滤缓存
+     */
+    clearFilterCache() {
+        this._filteredHashSheetCache = null;
+    }
+
+    /**
+     * 根据 UID 获取表格实例
+     * @param {string} uid - 表格的 UID
+     * @returns {SheetBase|null} 表格实例
+     */
+    getTableByUid(uid) {
+        // 需要从全局管理器获取表格实例
+        // 注意：这个方法需要在 Sheet 子类中重写，以便正确访问 BASE 管理器
+        console.warn('getTableByUid 方法需要在 Sheet 子类中实现');
+        return null;
+    }
+
+    /**
+     * 获取过滤后的CSV内容
+     * @param {boolean} removeHeader - 是否移除表头
+     * @param {string} key - 数据键
+     * @param {boolean} useFilter - 是否使用过滤
+     * @returns {string} CSV内容
+     */
+    getSheetCSVFiltered(removeHeader = true, key = 'value', useFilter = true) {
+        if (this.isEmpty()) return '（此表格当前为空）\n';
+        
+        const targetHashSheet = useFilter ? this.getFilteredHashSheet() : this.hashSheet;
+        
+        const content = targetHashSheet.slice(removeHeader ? 1 : 0).map((row, index) => row.map(cellUid => {
+            const cell = this.cells.get(cellUid);
+            if (!cell) return "";
+            return cell.type === Cell.CellType.row_header ? index : cell.data[key];
+        }).join(',')).join('\n');
+        
+        return content + "\n";
     }
 }

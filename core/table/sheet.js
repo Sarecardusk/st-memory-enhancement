@@ -231,18 +231,23 @@ export class Sheet extends SheetBase {
 
     /**
      * 获取表格内容的提示词，可以通过指定['title', 'node', 'headers', 'rows', 'editRules']中的部分，只获取部分内容
+     * @param {number} index - 表格索引
+     * @param {Array<string>} customParts - 要包含的部分
+     * @param {boolean} useFilter - 是否使用过滤（默认为true）
      * @returns 表格内容提示词
      */
-    getTableText(index, customParts = ['title', 'node', 'headers', 'rows', 'editRules']) {
+    getTableText(index, customParts = ['title', 'node', 'headers', 'rows', 'editRules'], useFilter = true) {
         console.log('获取表格内容提示词', this)
         if (this.triggerSend && this.triggerSendDeep < 1) return ''; // 如果触发深度=0，则不发送，可以用作信息一览表
         const title = `* ${index}:${this.name}\n`;
         const node = this.source.data.note && this.source.data.note !== '' ? '【说明】' + this.source.data.note + '\n' : '';
         const headers = "rowIndex," + this.getCellsByRowIndex(0).slice(1).map((cell, index) => index + ':' + cell.data.value).join(',') + '\n';
-        let rows = this.getSheetCSV()
+        
+        // 使用过滤后的 CSV 内容
+        let rows = this.getSheetCSVFiltered(true, 'value', useFilter);
+        
         const editRules = this.#getTableEditRules() + '\n';
         // 新增触发式表格内容发送，检索聊天内容的角色名
-
 
         if (rows && this.triggerSend) {
             const chats = USER.getContext().chat;
@@ -283,11 +288,17 @@ export class Sheet extends SheetBase {
 
     /**
      * 获取表格的content数据（与旧版兼容）
+     * @param {boolean} withHead - 是否包含表头
+     * @param {boolean} useFilter - 是否使用过滤（默认为false，保持向后兼容）
      * @returns {string[][]} - 返回表格的content数据
      */
-    getContent(withHead = false) {
+    getContent(withHead = false, useFilter = false) {
         if (!withHead && this.isEmpty()) return [];
-        const content = this.hashSheet.map((row) =>
+        
+        // 使用过滤后的数据或原始数据
+        const targetHashSheet = useFilter ? this.getFilteredHashSheet() : this.hashSheet;
+        
+        const content = targetHashSheet.map((row) =>
             row.map((cellUid) => {
                 const cell = this.cells.get(cellUid);
                 if (!cell) return "";
@@ -396,6 +407,26 @@ export class Sheet extends SheetBase {
 
         const cellUid = this.hashSheet?.[row]?.[col];
         return cellUid ? this.cells.get(cellUid) : null;
+    }
+
+    /**
+     * 根据 UID 获取表格实例（重写父类方法）
+     * @param {string} uid - 表格的 UID
+     * @returns {Sheet|null} 表格实例
+     */
+    getTableByUid(uid) {
+        try {
+            // 从 BASE 管理器获取最新的表格数据
+            const { piece } = BASE.getLastSheetsPiece();
+            if (!piece || !piece.hash_sheets) return null;
+            
+            // 将 hash_sheets 转换为 Sheet 实例
+            const tables = BASE.hashSheetsToSheets(piece.hash_sheets);
+            return tables.find(table => table.uid === uid) || null;
+        } catch (error) {
+            console.error(`获取表格 ${uid} 失败:`, error);
+            return null;
+        }
     }
 }
 

@@ -782,13 +782,18 @@ async function openFilterKeysEditor(sheet) {
           targetColSelect.innerHTML = '';
           const targetTableUid = targetTableSelect.value;
           if (targetTableUid) {
-            const targetSheet = availableSheets.find(s => s.uid === targetTableUid);
+            let targetSheet;
+            
+            // 根据scope获取正确的表格实例
+            if (scope === 'global') {
+              // 为全局模板创建SheetTemplate实例
+              targetSheet = new BASE.SheetTemplate(targetTableUid);
+            } else {
+              // 聊天域直接使用现有对象
+              targetSheet = availableSheets.find(s => s.uid === targetTableUid);
+            }
+            
             if (targetSheet) {
-              // 确保表格数据已加载
-              if (targetSheet.cellHistory && targetSheet.cellHistory.length > 0 && !targetSheet.cells.size) {
-                targetSheet.loadCells();
-              }
-              
               let columnHeaders = [];
               let maxTargetCols = 10;
               

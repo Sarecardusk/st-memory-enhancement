@@ -229,11 +229,13 @@ function bindSheetSetting(sheet, index) {
   titleBar.className = 'table-title-bar';
   titleBar.style.display = 'flex';
   titleBar.style.alignItems = 'center';
+  titleBar.style.justifyContent = 'flex-start';
   titleBar.style.minWidth = '500px';
-  titleBar.style.gap = '5px';
+  titleBar.style.gap = '8px';
   titleBar.style.color = 'var(--SmartThemeEmColor)';
   titleBar.style.fontSize = '0.8rem';
   titleBar.style.fontWeight = 'normal';
+  titleBar.style.paddingLeft = '10px';
 
   // 表格基础设置按钮
   const settingButton = $(
@@ -310,11 +312,20 @@ function bindSheetSetting(sheet, index) {
   styleButton.on('click', async () => {
     await openSheetStyleRendererPopup(sheet);
   });
-  const nameSpan = $(`<span style="margin-left: 0px;">#${index} ${sheet.name ? sheet.name : 'Unnamed Table'}</span>`);
+  
+  // 过滤键设置按钮
+  const filterButton = $(
+    `<i class="menu_button menu_button_icon fa-solid fa-filter" style="cursor: pointer; height: 28px; width: 28px;" title="设置过滤键"></i>`,
+  );
+  filterButton.on('click', async () => {
+    await openFilterKeysEditor(sheet);
+  });
+  
+  const nameSpan = $(`<span style="margin-left: 15px; margin-right: auto;">#${index} ${sheet.name ? sheet.name : 'Unnamed Table'}</span>`);
 
   // 新增：发送到上下文的复选框
   const sendToContextCheckbox = $(`
-        <label class="checkbox_label" style="margin-left: 10px; font-weight: normal; color: var(--text_primary);">
+        <label class="checkbox_label" style="margin-right: 10px; font-weight: normal; color: var(--text_primary);">
             <input type="checkbox" class="send_to_context_switch" ${sheet.sendToContext !== false ? 'checked' : ''} />
             <span data-i18n="Send to context">发送到上下文</span>
         </label>
@@ -326,18 +337,10 @@ function bindSheetSetting(sheet, index) {
     console.log(`表格 "${sheet.name}" 的 sendToContext 状态已更新为: ${sheet.sendToContext}`);
   });
 
-  // 过滤键设置按钮
-  const filterButton = $(
-    `<i class="menu_button menu_button_icon fa-solid fa-filter" style="cursor: pointer; height: 28px; width: 28px;" title="设置过滤键"></i>`,
-  );
-  filterButton.on('click', async () => {
-    await openFilterKeysEditor(sheet);
-  });
-
   titleBar.appendChild(settingButton[0]);
-  // titleBar.appendChild(originButton[0]);
-  titleBar.appendChild(filterButton[0]);
   titleBar.appendChild(styleButton[0]);
+  titleBar.appendChild(filterButton[0]);
+  // titleBar.appendChild(originButton[0]);
   titleBar.appendChild(nameSpan[0]);
   titleBar.appendChild(sendToContextCheckbox[0]);
 

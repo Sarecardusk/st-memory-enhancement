@@ -731,14 +731,17 @@ async function openFilterKeysEditor(sheet) {
         
         // 源列选择
         const sourceColSelect = document.createElement('select');
-        sourceColSelect.style.width = '120px';
+        sourceColSelect.style.width = '150px';
         sourceColSelect.style.padding = '5px';
         const maxSourceCols = sheet.hashSheet?.[0]?.length || 10;
         for (let i = 1; i < maxSourceCols; i++) {
           const option = document.createElement('option');
           option.value = i;
-          const columnHeader = sheet.hashSheet?.[0]?.[i]?.data?.value;
-          option.textContent = `列 ${i}${columnHeader ? `: ${columnHeader}` : ''}`;
+          // 获取列头单元格
+          const columnHeaderCell = sheet.cells.get(sheet.hashSheet?.[0]?.[i]);
+          const columnHeader = columnHeaderCell?.data?.value?.trim();
+          // 优先显示列名，如果没有列名则显示"列x"
+          option.textContent = columnHeader || `列 ${i}`;
           if (key.sourceColumn === i) option.selected = true;
           sourceColSelect.appendChild(option);
         }
@@ -784,8 +787,11 @@ async function openFilterKeysEditor(sheet) {
               for (let i = 1; i < maxTargetCols; i++) {
                 const option = document.createElement('option');
                 option.value = i;
-                const columnHeader = targetSheet.hashSheet?.[0]?.[i]?.data?.value;
-                option.textContent = `列 ${i}${columnHeader ? `: ${columnHeader}` : ''}`;
+                // 获取目标表格的列头单元格
+                const columnHeaderCell = targetSheet.cells.get(targetSheet.hashSheet?.[0]?.[i]);
+                const columnHeader = columnHeaderCell?.data?.value?.trim();
+                // 优先显示列名，如果没有列名则显示"列x"
+                option.textContent = columnHeader || `列 ${i}`;
                 if (key.refColumn === i) option.selected = true;
                 targetColSelect.appendChild(option);
               }

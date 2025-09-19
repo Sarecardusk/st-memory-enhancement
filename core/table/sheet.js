@@ -346,12 +346,41 @@ export class Sheet extends SheetBase {
         if (typeof target === 'object') {
             if (target.domain === SheetBase.SheetDomain.global) {
                 console.log('从模板转化表格', target, this);
-                this.loadJson(target)
-                this.domain = 'chat'
+                
+                // 深度复制模板数据，确保过滤键配置正确继承
+                const templateData = JSON.parse(JSON.stringify(target));
+                
+                // 确保config对象及其过滤键配置被正确继承
+                if (target.config) {
+                    if (!templateData.config) templateData.config = {};
+                    
+                    // 明确复制过滤键相关配置
+                    if (target.config.filterEnabled !== undefined) {
+                        templateData.config.filterEnabled = target.config.filterEnabled;
+                    }
+                    
+                    if (target.config.filterKeys && Array.isArray(target.config.filterKeys)) {
+                        // 深度复制过滤键数组，确保每个过滤键对象都被正确复制
+                        templateData.config.filterKeys = target.config.filterKeys.map(filterKey => ({
+                            sourceColumn: filterKey.sourceColumn,
+                            refTableUid: filterKey.refTableUid,
+                            refColumn: filterKey.refColumn
+                        }));
+                        
+                        console.log('模板继承 - 复制过滤键配置:', templateData.config.filterKeys);
+                    }
+                }
+                
+                this.loadJson(templateData);
+                this.domain = 'chat';
                 this.uid = `sheet_${SYSTEM.generateRandomString(8)}`;
                 this.name = this.name.replace('模板', '表格');
                 this.template = target;
-                return this
+                
+                // 验证过滤键配置是否正确继承
+                console.log('模板继承完成 - 最终过滤键配置:', this.config?.filterKeys);
+                
+                return this;
             } else {
                 this.loadJson(target)
                 return this;

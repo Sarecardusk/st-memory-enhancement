@@ -254,8 +254,8 @@ function bindSheetSetting(sheet, index) {
       required: sheet.required,
       triggerSend: sheet.triggerSend,
       triggerSendDeep: sheet.triggerSendDeep,
-      filterEnabled: sheet.filterEnabled || false,
-      filterKeys: sheet.filterKeys ? JSON.stringify(sheet.filterKeys, null, 2) : '[]',
+      filterEnabled: sheet.config?.filterEnabled || false,
+      filterKeys: sheet.config?.filterKeys ? JSON.stringify(sheet.config.filterKeys, null, 2) : '[]',
     };
     const formInstance = new Form(formConfigs.sheetConfig, initialData);
     const popup = new EDITOR.Popup(formInstance.renderForm(), EDITOR.POPUP_TYPE.CONFIRM, '', {
@@ -272,10 +272,14 @@ function bindSheetSetting(sheet, index) {
       // 将比较数据差异的结果更新至表格
       Object.keys(diffData).forEach(key => {
         console.log(key);
-        if (['domain', 'type', 'name', 'required', 'triggerSend', 'filterEnabled'].includes(key) && diffData[key] != null) {
+        if (['domain', 'type', 'name', 'required', 'triggerSend'].includes(key) && diffData[key] != null) {
           console.log('对比成功将更新' + key);
           sheet[key] = diffData[key];
           if (key === 'name') needRerender = true;
+        } else if (key === 'filterEnabled' && diffData[key] != null) {
+          console.log('对比成功将更新' + key);
+          if (!sheet.config) sheet.config = {};
+          sheet.config.filterEnabled = diffData[key];
         } else if (
           ['note', 'initNode', 'insertNode', 'deleteNode', 'updateNode'].includes(key) &&
           diffData[key] != null
@@ -289,8 +293,9 @@ function bindSheetSetting(sheet, index) {
           try {
             const parsedFilterKeys = JSON.parse(diffData[key]);
             if (Array.isArray(parsedFilterKeys)) {
-              sheet.filterKeys = parsedFilterKeys;
-              console.log('过滤键配置已更新:', sheet.filterKeys);
+              if (!sheet.config) sheet.config = {};
+              sheet.config.filterKeys = parsedFilterKeys;
+              console.log('过滤键配置已更新:', sheet.config.filterKeys);
             } else {
               console.error('过滤键配置必须是数组格式');
             }
@@ -668,7 +673,7 @@ async function openFilterKeysEditor(sheet) {
   const enableCheckbox = document.createElement('input');
   enableCheckbox.type = 'checkbox';
   enableCheckbox.id = 'filter-enabled';
-  enableCheckbox.checked = sheet.filterEnabled || false;
+  enableCheckbox.checked = sheet.config?.filterEnabled || false;
   const enableLabel = document.createElement('label');
   enableLabel.htmlFor = 'filter-enabled';
   enableLabel.textContent = ' 启用过滤功能';
@@ -689,7 +694,7 @@ async function openFilterKeysEditor(sheet) {
   keysContainer.style.backgroundColor = 'var(--SmartThemeBlurTintColor)';
   
   // 过滤键数组
-  let filterKeys = sheet.filterKeys ? [...sheet.filterKeys] : [];
+  let filterKeys = sheet.config?.filterKeys ? [...sheet.config.filterKeys] : [];
   
   // 获取所有可用的表格（排除当前表格）
   const availableSheets = getSheets().filter(s => s.uid !== sheet.uid);
@@ -760,7 +765,7 @@ async function openFilterKeysEditor(sheet) {
           const option = document.createElement('option');
           option.value = s.uid;
           option.textContent = s.name || `表格 ${s.uid.substring(0, 8)}`;
-          if (key.targetTable === s.uid) option.selected = true;
+          if (key.refTableUid === s.uid) option.selected = true;
           targetTableSelect.appendChild(option);
         });
         
@@ -781,7 +786,7 @@ async function openFilterKeysEditor(sheet) {
                 option.value = i;
                 const columnHeader = targetSheet.hashSheet?.[0]?.[i]?.data?.value;
                 option.textContent = `列 ${i}${columnHeader ? `: ${columnHeader}` : ''}`;
-                if (key.targetColumn === i) option.selected = true;
+                if (key.refColumn === i) option.selected = true;
                 targetColSelect.appendChild(option);
               }
             }
@@ -789,13 +794,13 @@ async function openFilterKeysEditor(sheet) {
         };
         
         targetTableSelect.onchange = () => {
-          filterKeys[index].targetTable = targetTableSelect.value;
+          filterKeys[index].refTableUid = targetTableSelect.value;
           updateTargetCols();
-          filterKeys[index].targetColumn = parseInt(targetColSelect.value) || 1;
+          filterKeys[index].refColumn = parseInt(targetColSelect.value) || 1;
         };
         
         targetColSelect.onchange = () => {
-          filterKeys[index].targetColumn = parseInt(targetColSelect.value);
+          filterKeys[index].refColumn = parseInt(targetColSelect.value);
         };
         
         updateTargetCols();
@@ -834,8 +839,8 @@ async function openFilterKeysEditor(sheet) {
   addButton.onclick = () => {
     filterKeys.push({
       sourceColumn: 1,
-      targetTable: '',
-      targetColumn: 1
+      refTableUid: '',
+      refColumn: 1
     });
     renderFilterKeys();
   };
@@ -851,14 +856,15 @@ async function openFilterKeysEditor(sheet) {
   await popup.show();
   if (popup.result) {
     // 保存配置
-    sheet.filterEnabled = enableCheckbox.checked;
+    if (!sheet.config) sheet.config = {};
+    sheet.config.filterEnabled = enableCheckbox.checked;
     // 过滤掉未完整配置的过滤键
-    sheet.filterKeys = filterKeys.filter(key => 
-      key.sourceColumn && key.targetTable && key.targetColumn
+    sheet.config.filterKeys = filterKeys.filter(key => 
+      key.sourceColumn && key.refTableUid && key.refColumn
     );
     
     sheet.save();
-    console.log('过滤键配置已保存:', sheet.filterKeys);
+    console.log('过滤键配置已保存:', sheet.config.filterKeys);
     
     // 如果在聊天域，刷新上下文视图
     if (scope === 'chat') {

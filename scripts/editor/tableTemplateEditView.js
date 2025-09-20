@@ -88,6 +88,13 @@ const formConfigs = {
         dataKey: 'note',
         description: '(作为该表总体提示词，给AI解释此表格的作用)',
       },
+      {
+        label: '填写规范（提示词）',
+        type: 'textarea',
+        rows: 6,
+        dataKey: 'specification',
+        description: '(规定AI在填写时需要遵守的规范)',
+      },
       { label: '是否必填', type: 'checkbox', dataKey: 'required' },
       { label: '是否触发发送', type: 'checkbox', dataKey: 'triggerSend' },
       { label: '触发发送深度', type: 'number', dataKey: 'triggerSendDeep' },
@@ -247,6 +254,7 @@ function bindSheetSetting(sheet, index) {
       type: sheet.type,
       name: sheet.name,
       note: sheet.data.note,
+      specification: sheet.data.specification,
       initNode: sheet.data.initNode,
       insertNode: sheet.data.insertNode,
       deleteNode: sheet.data.deleteNode,
@@ -281,7 +289,7 @@ function bindSheetSetting(sheet, index) {
           if (!sheet.config) sheet.config = {};
           sheet.config.filterEnabled = diffData[key];
         } else if (
-          ['note', 'initNode', 'insertNode', 'deleteNode', 'updateNode'].includes(key) &&
+          ['note', 'specification', 'initNode', 'insertNode', 'deleteNode', 'updateNode'].includes(key) &&
           diffData[key] != null
         ) {
           sheet.data[key] = diffData[key];

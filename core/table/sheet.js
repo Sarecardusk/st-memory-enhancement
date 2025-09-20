@@ -240,8 +240,8 @@ export class Sheet extends SheetBase {
         console.log('获取表格内容提示词', this)
         if (this.triggerSend && this.triggerSendDeep < 1) return ''; // 如果触发深度=0，则不发送，可以用作信息一览表
         const title = `* ${index}:${this.name}\n`;
-        const node = this.source.data.note && this.source.data.note !== '' ? '【说明】' + this.source.data.note + '\n' : '';
-        const specification = this.source.data.specification && this.source.data.specification !== '' ? '【规范】' + this.source.data.specification + '\n' : '';
+        const node = this.source.data.note && this.source.data.note !== '' ? '【说明】\n' + this.source.data.note + '\n\n' : '';
+        const specification = this.source.data.specification && this.source.data.specification !== '' ? '【规范】\n' + this.source.data.specification + '\n\n' : '';
         const headers = "rowIndex," + this.getCellsByRowIndex(0).slice(1).map((cell, index) => index + ':' + cell.data.value).join(',') + '\n';
         
         // 使用过滤后的 CSV 内容

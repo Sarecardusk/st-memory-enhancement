@@ -658,8 +658,8 @@ async function initTableEdit(mesId) {
 // 过滤键编辑器函数
 async function openFilterKeysEditor(sheet) {
   const container = document.createElement('div');
+  container.className = 'filter-keys-editor';
   container.style.padding = '15px';
-  container.style.minWidth = '500px';
   
   // 标题
   const title = document.createElement('h3');
@@ -714,24 +714,14 @@ async function openFilterKeysEditor(sheet) {
     } else {
       filterKeys.forEach((key, index) => {
         const keyItem = document.createElement('div');
-        keyItem.style.marginBottom = '10px';
-        keyItem.style.padding = '10px';
-        keyItem.style.backgroundColor = 'var(--SmartThemeBodyColor)';
-        keyItem.style.borderRadius = '5px';
-        keyItem.style.display = 'flex';
-        keyItem.style.alignItems = 'center';
-        keyItem.style.gap = '10px';
+        keyItem.className = 'filter-key-item';
         
         // 过滤键信息显示
         const infoContainer = document.createElement('div');
-        infoContainer.style.flex = '1';
-        infoContainer.style.display = 'flex';
-        infoContainer.style.alignItems = 'center';
-        infoContainer.style.gap = '10px';
+        infoContainer.className = 'filter-key-item-info';
         
         // 源列选择
         const sourceColSelect = document.createElement('select');
-        sourceColSelect.style.width = '150px';
         sourceColSelect.style.padding = '5px';
         const maxSourceCols = sheet.hashSheet?.[0]?.length || 10;
         // 获取表头行的所有单元格
@@ -757,7 +747,6 @@ async function openFilterKeysEditor(sheet) {
         
         // 目标表选择
         const targetTableSelect = document.createElement('select');
-        targetTableSelect.style.width = '150px';
         targetTableSelect.style.padding = '5px';
         
         const emptyOption = document.createElement('option');
@@ -775,7 +764,6 @@ async function openFilterKeysEditor(sheet) {
         
         // 目标列选择
         const targetColSelect = document.createElement('select');
-        targetColSelect.style.width = '120px';
         targetColSelect.style.padding = '5px';
         
         const updateTargetCols = () => {

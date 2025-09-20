@@ -12,6 +12,7 @@ import {
   ext_exportAllTablesAsJson,
   ext_getAllTables,
   ext_getFormatTablesAsJson,
+  ext_getOriginalTablesAsJson,
 } from './scripts/settings/standaloneAPI.js';
 import { loadSettings } from './scripts/settings/userExtensionSetting.js';
 import applicationFunctionManager from './services/appFuncManager.js';
@@ -191,8 +192,27 @@ export function findNextChatWhitTableData(startIndex, isIncludeStartIndex = fals
  * 搜寻最后一个含有表格数据的消息，并生成提示词
  * @returns 生成的完整提示词
  */
+function replaceMacros(template, eventData) {
+    let result = template;
+    const macros = {
+        '{{tableData}}': () => getTablePrompt(eventData, true),
+        '{{tablePrompt}}': () => getMacroPrompt(),
+        '{{GET_ALL_TABLES_JSON}}': () => JSON.stringify(ext_exportAllTablesAsJson()),
+        '{{GET_ORIGIN_TABLES_JSON}}': () => JSON.stringify(ext_getOriginalTablesAsJson()),
+        '{{GET_FORMAT_TABLES_JSON}}': () => JSON.stringify(ext_getFormatTablesAsJson()),
+    };
+
+    for (const macro in macros) {
+        if (result.includes(macro)) {
+            result = result.replace(new RegExp(macro, 'g'), macros[macro]());
+        }
+    }
+
+    return result;
+}
+
 export function initTableData(eventData) {
-  const allPrompt = USER.tableBaseSetting.message_template.replace('{{tableData}}', getTablePrompt(eventData));
+  const allPrompt = replaceMacros(USER.tableBaseSetting.message_template, eventData);
   const promptContent = replaceUserTag(allPrompt); //替换所有的<user>标签
   console.log('完整提示', promptContent);
   return promptContent;

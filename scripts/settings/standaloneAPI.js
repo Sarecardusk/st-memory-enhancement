@@ -753,6 +753,61 @@ export function ext_exportAllTablesAsJson(useFilter = true) {
 
 /**
  * @description
+ * - **功能**: 导出所有表格为一个 JSON 对象，并增加表号、行号、列号。
+ * - **使用场景**: 用于需要表格结构化信息的场景。
+ * - **返回值**: 返回一个 JSON 对象，键是 '表号-表格名'，值是增加了行列号的表格数据。
+ * - **格式**: {"0-name0":[["","0-col0","1-col1",...],[0,"cont0","cont1",...]],...}
+ * - **过滤**: 默认应用过滤键规则，仅导出符合过滤条件的数据
+ *
+ * @param {boolean} useFilter - 是否使用过滤（默认为true）
+ * @returns {Object}
+ */
+export function ext_getFormatTablesAsJson(useFilter = true) {
+    const { piece } = BASE.getLastSheetsPiece();
+    if (!piece || !piece.hash_sheets) {
+        console.warn("[Memory Enhancement] ext_getFormatTablesAsJson: 未找到任何有效的表格数据。");
+        return {};
+    }
+
+    const tables = BASE.hashSheetsToSheets(piece.hash_sheets);
+    if (!tables || tables.length === 0) {
+        return {};
+    }
+
+    const exportData = {};
+    tables.forEach((table, tableIndex) => {
+        if (!table.enable) return; // 跳过禁用的表格
+
+        try {
+            const rawContent = table.getContent(true, useFilter) || [];
+
+            const formattedContent = rawContent.map((row, rowIndex) => {
+                if (!Array.isArray(row)) return [];
+                if (rowIndex === 0) { // Header row
+                    return row.map((cell, colIndex) => {
+                        if (colIndex === 0) return String(cell ?? '');
+                        return `${colIndex - 1}-${String(cell ?? '')}`;
+                    });
+                } else { // Data row
+                    return row.map((cell, colIndex) => {
+                        if (colIndex === 0) return rowIndex - 1;
+                        return String(cell ?? '');
+                    });
+                }
+            });
+
+            const newTableName = `${tableIndex}-${table.name}`;
+            exportData[newTableName] = formattedContent;
+        } catch (error) {
+            console.error(`[Memory Enhancement] 导出格式化表格 ${table.name} (UID: ${table.uid}) 时出错:`, error);
+        }
+    });
+
+    return exportData;
+}
+
+/**
+ * @description
  * - **功能**: 导出所有表格的原始数据为 JSON 对象，不应用任何过滤。
  * - **使用场景**: 当需要获取完整的、未经过滤的表格数据时使用。
  * - **返回值**: 返回一个 JSON 对象，包含所有表格的完整原始数据。

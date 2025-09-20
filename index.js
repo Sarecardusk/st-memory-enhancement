@@ -8,7 +8,7 @@ import { openTableRendererPopup, updateSystemMessageTableStatus } from "./script
 import { initRefreshTypeSelector } from './scripts/runtime/absoluteRefresh.js';
 import { TableTwoStepSummary } from "./scripts/runtime/separateTableUpdate.js";
 import { openTableDebugLogPopup } from "./scripts/settings/devConsole.js";
-import { ext_exportAllTablesAsJson, ext_getAllTables } from './scripts/settings/standaloneAPI.js';
+import { ext_exportAllTablesAsJson, ext_getAllTables, ext_getFormatTablesAsJson } from './scripts/settings/standaloneAPI.js';
 import { loadSettings } from "./scripts/settings/userExtensionSetting.js";
 import applicationFunctionManager from "./services/appFuncManager.js";
 import { functionToBeRegistered } from "./services/debugs.js";
@@ -894,6 +894,21 @@ jQuery(async () => {
         EDITOR.error('导出原始表格数据时出错。', '', error);
         return '{}'; // 出错时返回空JSON对象
       }
+    });
+
+    USER.getContext().registerMacro('GET_FORMAT_TABLES_JSON', () => {
+        try {
+            const jsonData = ext_getFormatTablesAsJson();
+            if (Object.keys(jsonData).length === 0) {
+                return "{}"; // 如果没有数据，返回一个空的JSON对象
+            }
+            // 返回JSON字符串，不带额外的格式化，以便在代码中直接使用
+            return JSON.stringify(jsonData);
+        } catch (error) {
+            console.error("GET_FORMAT_TABLES_JSON 宏执行出错:", error);
+            EDITOR.error("导出格式化表格数据时出错。", "", error);
+            return "{}"; // 出错时返回空JSON对象
+        }
     });
 
     // 设置表格编辑按钮

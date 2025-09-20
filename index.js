@@ -214,13 +214,24 @@ export function getTablePrompt(eventData, isPureData = false) {
  * @param {Object} piece 聊天片段
  * @returns {string} 表格相关提示词
  */
-export function getTablePromptByPiece(piece, customParts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules']) {
+export function getTablePromptByPiece(
+  piece,
+  customParts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'],
+) {
+  let parts = customParts;
+  if (typeof customParts === 'boolean') {
+    if (customParts === true) {
+      parts = ['title', 'node', 'headers', 'rows'];
+    } else {
+      parts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'];
+    }
+  }
   const { hash_sheets } = piece;
   const sheets = BASE.hashSheetsToSheets(hash_sheets)
     .filter(sheet => sheet.enable)
     .filter(sheet => sheet.sendToContext !== false);
   console.log('构建提示词时的信息 (已过滤)', hash_sheets, sheets);
-  const sheetDataPrompt = sheets.map((sheet, index) => sheet.getTableText(index, customParts, piece)).join('\n');
+  const sheetDataPrompt = sheets.map((sheet, index) => sheet.getTableText(index, parts, true)).join('\n');
   return sheetDataPrompt;
 }
 
@@ -619,7 +630,14 @@ function getMacroPrompt() {
     if (USER.tableBaseSetting.isExtensionAble === false || USER.tableBaseSetting.isAiReadTable === false) return '';
     const lastSheetsPiece = BASE.getReferencePiece();
     if (!lastSheetsPiece) return '';
-    const promptContent = getTablePromptByPiece(lastSheetsPiece, ['title', 'node', 'specification', 'headers', 'rows', 'editRules']);
+    const promptContent = getTablePromptByPiece(lastSheetsPiece, [
+      'title',
+      'node',
+      'specification',
+      'headers',
+      'rows',
+      'editRules',
+    ]);
     return replaceUserTag(promptContent);
   } catch (error) {
     EDITOR.error(`记忆插件：宏提示词注入失败\n原因：`, error.message, error);

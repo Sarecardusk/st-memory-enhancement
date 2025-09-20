@@ -236,11 +236,12 @@ export class Sheet extends SheetBase {
      * @param {boolean} useFilter - 是否使用过滤（默认为true）
      * @returns 表格内容提示词
      */
-    getTableText(index, customParts = ['title', 'node', 'headers', 'rows', 'editRules'], useFilter = true) {
+    getTableText(index, customParts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'], useFilter = true) {
         console.log('获取表格内容提示词', this)
         if (this.triggerSend && this.triggerSendDeep < 1) return ''; // 如果触发深度=0，则不发送，可以用作信息一览表
         const title = `* ${index}:${this.name}\n`;
         const node = this.source.data.note && this.source.data.note !== '' ? '【说明】' + this.source.data.note + '\n' : '';
+        const specification = this.source.data.specification && this.source.data.specification !== '' ? '【规范】' + this.source.data.specification + '\n' : '';
         const headers = "rowIndex," + this.getCellsByRowIndex(0).slice(1).map((cell, index) => index + ':' + cell.data.value).join(',') + '\n';
         
         // 使用过滤后的 CSV 内容
@@ -272,6 +273,9 @@ export class Sheet extends SheetBase {
         }
         if (customParts.includes('node')) {
             result += node;
+        }
+        if (customParts.includes('specification')) {
+            result += specification;
         }
         if (customParts.includes('headers')) {
             result += '【表格内容】\n' + headers;

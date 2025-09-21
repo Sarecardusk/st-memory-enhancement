@@ -235,16 +235,16 @@ export function getTablePrompt(eventData, isPureData = false) {
  * @param {Object} piece 聊天片段
  * @returns {string} 表格相关提示词
  */
-export function getTablePromptByPiece(piece, customParts = ['title', 'node', 'headers', 'rows', 'editRules']) {
+export function getTablePromptByPiece(piece, customParts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules']) {
   let parts = customParts;
   if (typeof customParts === 'boolean' || customParts === undefined) {
     if (customParts === true) {
       parts = ['title', 'node', 'headers', 'rows'];
     } else {
-      parts = ['title', 'node', 'headers', 'rows', 'editRules'];
+      parts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'];
     }
   } else if (!Array.isArray(customParts)) {
-    parts = ['title', 'node', 'headers', 'rows', 'editRules'];
+    parts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'];
   }
   const { hash_sheets } = piece;
   const sheets = BASE.hashSheetsToSheets(hash_sheets)
@@ -650,7 +650,7 @@ function getMacroPrompt() {
     if (USER.tableBaseSetting.isExtensionAble === false || USER.tableBaseSetting.isAiReadTable === false) return '';
     const lastSheetsPiece = BASE.getReferencePiece();
     if (!lastSheetsPiece) return '';
-    const promptContent = getTablePromptByPiece(lastSheetsPiece, ['title', 'node', 'headers', 'rows', 'editRules']);
+    const promptContent = getTablePromptByPiece(lastSheetsPiece, ['title', 'node', 'specification', 'headers', 'rows', 'editRules']);
     return replaceUserTag(promptContent);
   } catch (error) {
     EDITOR.error(`记忆插件：宏提示词注入失败\n原因：`, error.message, error);

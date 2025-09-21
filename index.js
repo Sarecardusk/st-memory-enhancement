@@ -136,7 +136,7 @@ export function convertOldTablesToNewSheets(oldTableList, targetPiece) {
     newSheet.triggerSendDeep = 1;
 
     addOldTablePrompt(newSheet);
-    newSheet.data.description = `${oldTable.note}\n${oldTable.initNode}\n${oldTable.insertNode}\n${oldTable.updateNode}\n${oldTable.deleteNode}`;
+    newSheet.data.description = `${oldTable.note}\n${oldTable.specification}\n${oldTable.initNode}\n${oldTable.insertNode}\n${oldTable.updateNode}\n${oldTable.deleteNode}`;
 
     valueSheet.forEach((row, rowIndex) => {
       row.forEach((value, colIndex) => {
@@ -168,6 +168,7 @@ function addOldTablePrompt(sheet) {
   source.data.updateNode = tableStructure.updateNode;
   source.data.deleteNode = tableStructure.deleteNode;
   source.data.note = tableStructure.note;
+  source.data.specification = tableStructure.specification;
 }
 
 /**
@@ -193,22 +194,22 @@ export function findNextChatWhitTableData(startIndex, isIncludeStartIndex = fals
  * @returns 生成的完整提示词
  */
 function replaceMacros(template, eventData) {
-    let result = template;
-    const macros = {
-        '{{tableData}}': () => getTablePrompt(eventData, true),
-        '{{tablePrompt}}': () => getMacroPrompt(),
-        '{{GET_ALL_TABLES_JSON}}': () => JSON.stringify(ext_exportAllTablesAsJson()),
-        '{{GET_ORIGIN_TABLES_JSON}}': () => JSON.stringify(ext_getOriginalTablesAsJson()),
-        '{{GET_FORMAT_TABLES_JSON}}': () => JSON.stringify(ext_getFormatTablesAsJson()),
-    };
+  let result = template;
+  const macros = {
+    '{{tableData}}': () => getTablePrompt(eventData, true),
+    '{{tablePrompt}}': () => getMacroPrompt(),
+    '{{GET_ALL_TABLES_JSON}}': () => JSON.stringify(ext_exportAllTablesAsJson()),
+    '{{GET_ORIGIN_TABLES_JSON}}': () => JSON.stringify(ext_getOriginalTablesAsJson()),
+    '{{GET_FORMAT_TABLES_JSON}}': () => JSON.stringify(ext_getFormatTablesAsJson()),
+  };
 
-    for (const macro in macros) {
-        if (result.includes(macro)) {
-            result = result.replace(new RegExp(macro, 'g'), macros[macro]());
-        }
+  for (const macro in macros) {
+    if (result.includes(macro)) {
+      result = result.replace(new RegExp(macro, 'g'), macros[macro]());
     }
+  }
 
-    return result;
+  return result;
 }
 
 export function initTableData(eventData) {
@@ -234,19 +235,16 @@ export function getTablePrompt(eventData, isPureData = false) {
  * @param {Object} piece 聊天片段
  * @returns {string} 表格相关提示词
  */
-export function getTablePromptByPiece(
-  piece,
-  customParts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'],
-) {
+export function getTablePromptByPiece(piece, customParts = ['title', 'node', 'headers', 'rows', 'editRules']) {
   let parts = customParts;
   if (typeof customParts === 'boolean' || customParts === undefined) {
     if (customParts === true) {
       parts = ['title', 'node', 'headers', 'rows'];
     } else {
-      parts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'];
+      parts = ['title', 'node', 'headers', 'rows', 'editRules'];
     }
   } else if (!Array.isArray(customParts)) {
-    parts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'];
+    parts = ['title', 'node', 'headers', 'rows', 'editRules'];
   }
   const { hash_sheets } = piece;
   const sheets = BASE.hashSheetsToSheets(hash_sheets)
@@ -652,14 +650,7 @@ function getMacroPrompt() {
     if (USER.tableBaseSetting.isExtensionAble === false || USER.tableBaseSetting.isAiReadTable === false) return '';
     const lastSheetsPiece = BASE.getReferencePiece();
     if (!lastSheetsPiece) return '';
-    const promptContent = getTablePromptByPiece(lastSheetsPiece, [
-      'title',
-      'node',
-      'specification',
-      'headers',
-      'rows',
-      'editRules',
-    ]);
+    const promptContent = getTablePromptByPiece(lastSheetsPiece, ['title', 'node', 'headers', 'rows', 'editRules']);
     return replaceUserTag(promptContent);
   } catch (error) {
     EDITOR.error(`记忆插件：宏提示词注入失败\n原因：`, error.message, error);

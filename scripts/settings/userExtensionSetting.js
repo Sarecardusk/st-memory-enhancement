@@ -659,6 +659,7 @@ export function initTableStructureToTemplate() {
         if(defaultTemplate.config)
             newTemplate.config = JSON.parse(JSON.stringify(defaultTemplate.config))
         newTemplate.source.data.note = defaultTemplate.note
+        newTemplate.source.data.specification = defaultTemplate.specification
         newTemplate.source.data.initNode = defaultTemplate.initNode
         newTemplate.source.data.deleteNode = defaultTemplate.deleteNode
         newTemplate.source.data.updateNode = defaultTemplate.updateNode
@@ -677,6 +678,7 @@ function templateToTableStructure() {
             tableName: template.name,
             columns: template.hashSheet[0].slice(1).map(cellUid => template.cells.get(cellUid).data.value),
             note: template.data.note,
+            specification: template.data.specification,
             initNode: template.data.initNode,
             deleteNode: template.data.deleteNode,
             updateNode: template.data.updateNode,

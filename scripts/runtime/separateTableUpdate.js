@@ -90,17 +90,17 @@ export async function TableTwoStepSummary(mode) {
     console.log('待填表的对话片段:', todoChats);
 
     // 检查是否开启执行前确认
-    const popupContentHtml = `<p>累计 ${todoChats.length} 长度的文本，是否开始独立填表？</p>`;
+    const popupContentHtml = `累计 ${todoChats.length} 长度的文本，是否开始独立填表？`;
     // 移除了模板选择相关的HTML和逻辑
 
     const popupId = 'stepwiseSummaryConfirm';
     const confirmResult = await newPopupConfirm(
-        popupContentHtml,
-        "取消",
-        "执行填表",
-        popupId,
-        "不再提示", // dontRemindText: Permanently disables the popup
-        "一直选是"  // alwaysConfirmText: Confirms for the session
+      popupContentHtml,
+      '取消',
+      '执行填表',
+      popupId,
+      // "不再提示", // dontRemindText: Permanently disables the popup
+      // "一直选是"  // alwaysConfirmText: Confirms for the session
     );
 
     console.log('newPopupConfirm result for stepwise summary:', confirmResult);

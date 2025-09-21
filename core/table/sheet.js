@@ -237,6 +237,9 @@ export class Sheet extends SheetBase {
      * @returns 表格内容提示词
      */
     getTableText(index, customParts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'], useFilter = true) {
+        if (!Array.isArray(customParts)) {
+            customParts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'];
+        }
         console.log('获取表格内容提示词', this)
         if (this.triggerSend && this.triggerSendDeep < 1) return ''; // 如果触发深度=0，则不发送，可以用作信息一览表
         const title = `* ${index}:${this.name}\n`;

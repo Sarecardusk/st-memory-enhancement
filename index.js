@@ -239,12 +239,14 @@ export function getTablePromptByPiece(
   customParts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'],
 ) {
   let parts = customParts;
-  if (typeof customParts === 'boolean') {
+  if (typeof customParts === 'boolean' || customParts === undefined) {
     if (customParts === true) {
       parts = ['title', 'node', 'headers', 'rows'];
     } else {
       parts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'];
     }
+  } else if (!Array.isArray(customParts)) {
+    parts = ['title', 'node', 'specification', 'headers', 'rows', 'editRules'];
   }
   const { hash_sheets } = piece;
   const sheets = BASE.hashSheetsToSheets(hash_sheets)

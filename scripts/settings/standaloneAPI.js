@@ -397,16 +397,9 @@ export async function handleCustomAPIRequest(systemPrompt, userPrompt, isStepByS
                 table_proxy_key: USER.IMPORTANT_USER_PRIVACY_DATA.table_proxy_key
             });
 
-            const streamCallback = (chunk) => {
-                if (loadingToast) {
-                    const modeText = isStepByStepSummary ? "(分步)" : ""; // isStepByStepSummary might be useful here still
-                    loadingToast.text = `正在使用第 ${keyIndexToTry + 1} 个Key生成${modeText}: ${chunk}`;
-                }
-            };
-
             try {
-                // Pass promptData (which could be string or array) to callLLM
-                response = await llmService.callLLM(promptData, streamCallback);
+                // Pass promptData (which could be string or array) to callLLM for a non-streaming response
+                response = await llmService.callLLM(promptData);
                 console.log(`请求成功 (llmService, 密钥索引: ${keyIndexToTry}):`, response);
                 loadingToast?.close();
                 return suspended ? 'suspended' : response; // Success, return immediately

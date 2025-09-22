@@ -370,7 +370,7 @@ export class Sheet extends SheetBase {
                         // 深度复制过滤键数组，确保每个过滤键对象都被正确复制
                         templateData.config.filterKeys = target.config.filterKeys.map(filterKey => ({
                             sourceColumn: filterKey.sourceColumn,
-                            refTableUid: filterKey.refTableUid,
+                            refTableName: filterKey.refTableName,
                             refColumn: filterKey.refColumn
                         }));
                         
@@ -461,6 +461,26 @@ export class Sheet extends SheetBase {
             return tables.find(table => table.uid === uid) || null;
         } catch (error) {
             console.error(`获取表格 ${uid} 失败:`, error);
+            return null;
+        }
+    }
+
+    /**
+     * 根据 Name 获取表格实例（重写父类方法）
+     * @param {string} name - 表格的 Name
+     * @returns {Sheet|null} 表格实例
+     */
+    getTableByName(name) {
+        try {
+            // 从 BASE 管理器获取最新的表格数据
+            const { piece } = BASE.getLastSheetsPiece();
+            if (!piece || !piece.hash_sheets) return null;
+            
+            // 将 hash_sheets 转换为 Sheet 实例
+            const tables = BASE.hashSheetsToSheets(piece.hash_sheets);
+            return tables.find(table => table.name === name) || null;
+        } catch (error) {
+            console.error(`获取表格 ${name} 失败:`, error);
             return null;
         }
     }

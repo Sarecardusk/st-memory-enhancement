@@ -53,7 +53,7 @@ export class SheetBase {
             customStyles: {'自定义样式': {...customStyleConfig}},                 // 用于存储自定义样式
             // 过滤键配置
             filterEnabled: false,              // 是否启用过滤
-            filterKeys: []                     // 过滤键配置数组 [{sourceColumn: 1, refTableUid: 'sheet_xxx', refColumn: 1}]
+            filterKeys: []                     // 过滤键配置数组 [{sourceColumn: 1, refTableName: 'some_table_name', refColumn: 1}]
         }
 
         // 临时属性
@@ -334,8 +334,8 @@ export class SheetBase {
         // 优化1：预过滤有效的过滤键配置
         const validFilterKeys = [];
         for (const filterKey of this.config.filterKeys) {
-            const { sourceColumn, refTableUid, refColumn } = filterKey;
-            if (sourceColumn && refTableUid && refColumn) {
+            const { sourceColumn, refTableName, refColumn } = filterKey;
+            if (sourceColumn && refTableName && refColumn) {
                 validFilterKeys.push(filterKey);
             }
         }
@@ -349,12 +349,12 @@ export class SheetBase {
         
         // 批量获取引用表格数据
         for (const filterKey of validFilterKeys) {
-            const { sourceColumn, refTableUid, refColumn } = filterKey;
+            const { sourceColumn, refTableName, refColumn } = filterKey;
             
             // 获取引用表格
-            const refTable = this.getTableByUid(refTableUid);
+            const refTable = this.getTableByName(refTableName);
             if (!refTable) {
-                console.warn(`未找到引用表格：${refTableUid}`);
+                console.warn(`未找到引用表格：${refTableName}`);
                 continue;
             }
 
@@ -437,6 +437,18 @@ export class SheetBase {
         // 需要从全局管理器获取表格实例
         // 注意：这个方法需要在 Sheet 子类中重写，以便正确访问 BASE 管理器
         console.warn('getTableByUid 方法需要在 Sheet 子类中实现');
+        return null;
+    }
+
+    /**
+     * 根据 Name 获取表格实例
+     * @param {string} name - 表格的 Name
+     * @returns {SheetBase|null} 表格实例
+     */
+    getTableByName(name) {
+        // 需要从全局管理器获取表格实例
+        // 注意：这个方法需要在 Sheet 子类中重写，以便正确访问 BASE 管理器
+        console.warn('getTableByName 方法需要在 Sheet 子类中实现');
         return null;
     }
 

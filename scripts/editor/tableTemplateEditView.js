@@ -764,9 +764,9 @@ async function openFilterKeysEditor(sheet) {
         
         availableSheets.forEach(s => {
           const option = document.createElement('option');
-          option.value = s.uid;
+          option.value = s.name;
           option.textContent = s.name || `表格 ${s.uid.substring(0, 8)}`;
-          if (key.refTableUid === s.uid) option.selected = true;
+          if (key.refTableName === s.name) option.selected = true;
           targetTableSelect.appendChild(option);
         });
         
@@ -776,17 +776,17 @@ async function openFilterKeysEditor(sheet) {
         
         const updateTargetCols = () => {
           targetColSelect.innerHTML = '';
-          const targetTableUid = targetTableSelect.value;
-          if (targetTableUid) {
+          const targetTableName = targetTableSelect.value;
+          if (targetTableName) {
             let targetSheet;
             
             // 根据scope获取正确的表格实例
             if (scope === 'global') {
               // 为全局模板创建SheetTemplate实例
-              targetSheet = new BASE.SheetTemplate(targetTableUid);
+              targetSheet = new BASE.SheetTemplate(availableSheets.find(s => s.name === targetTableName)?.uid);
             } else {
               // 聊天域直接使用现有对象
-              targetSheet = availableSheets.find(s => s.uid === targetTableUid);
+              targetSheet = availableSheets.find(s => s.name === targetTableName);
             }
             
             if (targetSheet) {
@@ -821,7 +821,7 @@ async function openFilterKeysEditor(sheet) {
         };
         
         targetTableSelect.onchange = () => {
-          filterKeys[index].refTableUid = targetTableSelect.value;
+          filterKeys[index].refTableName = targetTableSelect.value;
           updateTargetCols();
           filterKeys[index].refColumn = parseInt(targetColSelect.value) || 1;
         };
@@ -866,7 +866,7 @@ async function openFilterKeysEditor(sheet) {
   addButton.onclick = () => {
     filterKeys.push({
       sourceColumn: 1,
-      refTableUid: '',
+      refTableName: '',
       refColumn: 1
     });
     renderFilterKeys();
@@ -887,7 +887,7 @@ async function openFilterKeysEditor(sheet) {
     sheet.config.filterEnabled = enableCheckbox.checked;
     // 过滤掉未完整配置的过滤键
     sheet.config.filterKeys = filterKeys.filter(key => 
-      key.sourceColumn && key.refTableUid && key.refColumn
+      key.sourceColumn && key.refTableName && key.refColumn
     );
     
     sheet.save();

@@ -132,7 +132,9 @@ export class Cell {
                 this.element.textContent = this.data.value || ''; // Column headers (A, B, C...)
                 this.element.classList.add('sheet-header-cell-top');
             } else if (colIndex === 0) {
-                this.element.textContent = this.data.value || rowIndex; // Row headers (1, 2, 3...)
+                // 对于数据行（rowIndex > 0），我们显示 0-based 的索引
+                const displayRowIndex = rowIndex > 0 ? rowIndex - 1 : rowIndex;
+                this.element.textContent = this.data.value || displayRowIndex;
                 this.element.classList.add('sheet-header-cell-left');
                 // this.element.style.border = 'none';
                 // this.element.style.outline = 'none';

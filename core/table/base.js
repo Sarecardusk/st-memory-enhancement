@@ -479,8 +479,13 @@ export class SheetBase {
                 if (!cell) {
                     columns.push("");
                 } else {
-                    // 使用原始索引
-                    columns.push(cell.type === Cell.CellType.row_header ? originalIndex : cell.data[key]);
+                    if (cell.type === Cell.CellType.row_header) {
+                        // 对于数据行（originalIndex > 0），我们显示 0-based 的索引
+                        const displayRowIndex = originalIndex > 0 ? originalIndex - 1 : originalIndex;
+                        columns.push(displayRowIndex);
+                    } else {
+                        columns.push(cell.data[key]);
+                    }
                 }
             }
 

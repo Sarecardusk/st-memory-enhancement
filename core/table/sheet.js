@@ -33,7 +33,14 @@ export class Sheet extends SheetBase {
         const currentHashSheet = Array.isArray(targetHashSheet) ? targetHashSheet : (this.hashSheet || []);
         // 仅对数组做本地浅拷贝；不要调用 BASE.copyHashSheets（它面向 hash_sheets 映射对象，不是二维数组）
         let renderHashSheet = Array.isArray(currentHashSheet)
-            ? currentHashSheet.map(r => (Array.isArray(r) ? r.slice() : []))
+            ? currentHashSheet.map(item => {
+                const row = item.row ? item.row : item;
+                return Array.isArray(row) ? [...row] : [];
+            })
+            : [];
+        
+        const originalIndices = Array.isArray(currentHashSheet)
+            ? currentHashSheet.map(item => item.originalIndex)
             : [];
 
         // 集成单元格高亮逻辑（来源：chatSheetsDataView.cellHighlight）
@@ -83,7 +90,8 @@ export class Sheet extends SheetBase {
         tbody.innerHTML = '';
 
         // 遍历渲染用的 hashSheet 副本，渲染每一个单元格
-        renderHashSheet.forEach((rowUids, rowIndex) => {
+        renderHashSheet.forEach((rowUids, visualRowIndex) => {
+            const originalRowIndex = originalIndices[visualRowIndex] !== undefined ? originalIndices[visualRowIndex] : visualRowIndex;
             const rowElement = document.createElement('tr');
             rowUids.forEach((cellUid, colIndex) => {
                 let cell = this.cells.get(cellUid)
@@ -94,7 +102,7 @@ export class Sheet extends SheetBase {
                     cell.data = { value: '' }; // 初始化数据
                     this.cells.set(cellUid, cell); // 将新创建的单元格添加到 cells 中
                 }
-                const cellElement = cell.initCellRender(rowIndex, colIndex);
+                const cellElement = cell.initCellRender(originalRowIndex, colIndex);
                 rowElement.appendChild(cellElement);    // 调用 Cell 的 initCellRender 方法，仍然需要传递 rowIndex, colIndex 用于渲染单元格内容
                 if (cellEventHandler) {
                     cellEventHandler(cell);
@@ -301,15 +309,13 @@ export class Sheet extends SheetBase {
      */
     getContent(withHead = false, useFilter = false) {
         if (!withHead && this.isEmpty()) return [];
-        
-        // 使用过滤后的数据或原始数据
-        const targetHashSheet = useFilter ? this.getFilteredHashSheet() : this.hashSheet;
-        
-        const content = targetHashSheet.map((row) =>
+
+        const targetData = useFilter ? this.getFilteredHashSheet() : this.hashSheet.map((row, index) => ({ originalIndex: index, row }));
+
+        const content = targetData.map(({ row }) =>
             row.map((cellUid) => {
                 const cell = this.cells.get(cellUid);
-                if (!cell) return "";
-                return cell.data.value;
+                return cell ? cell.data.value : "";
             })
         );
 

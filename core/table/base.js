@@ -304,18 +304,18 @@ export class SheetBase {
     /**
      * 获取过滤后的 hashSheet - 无缓存优化版本
      * @param {Set} visitedTables - 已访问的表格集合，用于检测循环依赖
-     * @returns {Array} 过滤后的 hashSheet
+     * @returns {Array<{originalIndex: number, row: Array<string>}>} 过滤后的 hashSheet，包含原始索引
      */
     getFilteredHashSheet(visitedTables = new Set()) {
-        // 如果未启用过滤或没有过滤键配置，返回原始数据
+        // 如果未启用过滤或没有过滤键配置，返回原始数据及索引
         if (!this.config?.filterEnabled || !this.config?.filterKeys?.length) {
-            return this.hashSheet;
+            return this.hashSheet.map((row, index) => ({ originalIndex: index, row }));
         }
 
         // 检测循环依赖
         if (visitedTables.has(this.uid)) {
             console.warn(`检测到循环依赖：表格 ${this.name} (${this.uid})`);
-            return this.hashSheet;
+            return this.hashSheet.map((row, index) => ({ originalIndex: index, row }));
         }
 
         // 性能监控开始
@@ -324,7 +324,7 @@ export class SheetBase {
 
         // 快速路径：如果没有数据行，直接返回表头
         if (rowCount <= 1) {
-            return this.hashSheet;
+            return this.hashSheet.map((row, index) => ({ originalIndex: index, row }));
         }
 
         // 添加当前表格到已访问集合
@@ -341,7 +341,7 @@ export class SheetBase {
         }
 
         if (validFilterKeys.length === 0) {
-            return this.hashSheet;
+            return this.hashSheet.map((row, index) => ({ originalIndex: index, row }));
         }
 
         // 优化2：预建立允许值映射，使用更高效的数据结构
@@ -385,11 +385,11 @@ export class SheetBase {
 
         // 如果没有有效的过滤值，返回原始数据
         if (allowedValuesArray.length === 0) {
-            return this.hashSheet;
+            return this.hashSheet.map((row, index) => ({ originalIndex: index, row }));
         }
 
         // 优化6：预分配结果数组容量
-        const filteredHashSheet = [this.hashSheet[0]]; // 保留表头
+        const filteredResult = [{ originalIndex: 0, row: this.hashSheet[0] }]; // 保留表头
         
         // 优化7：缓存常用引用，减少属性访问
         const sourceHashSheet = this.hashSheet;
@@ -414,7 +414,7 @@ export class SheetBase {
             });
 
             if (shouldInclude) {
-                filteredHashSheet.push(row);
+                filteredResult.push({ originalIndex: rowIndex, row: row });
             }
         }
 
@@ -422,10 +422,10 @@ export class SheetBase {
         const endTime = performance.now();
         const duration = endTime - startTime;
         if (duration > 50) { // 降低日志阈值，更好监控性能
-            console.log(`过滤表格 "${this.name}" 耗时: ${duration.toFixed(2)}ms, 原始行数: ${rowCount}, 过滤后行数: ${filteredHashSheet.length}`);
+            console.log(`过滤表格 "${this.name}" 耗时: ${duration.toFixed(2)}ms, 原始行数: ${rowCount}, 过滤后行数: ${filteredResult.length}`);
         }
 
-        return filteredHashSheet;
+        return filteredResult;
     }
 
     /**
@@ -461,31 +461,32 @@ export class SheetBase {
      */
     getSheetCSVFiltered(removeHeader = true, key = 'value', useFilter = true) {
         if (this.isEmpty()) return '（此表格当前为空）\n';
-        
-        const targetHashSheet = useFilter ? this.getFilteredHashSheet() : this.hashSheet;
-        
+
+        const filteredData = useFilter ? this.getFilteredHashSheet() : this.hashSheet.map((row, index) => ({ originalIndex: index, row }));
+
         // 优化：预分配字符串数组，减少字符串拼接开销
         const rows = [];
         const startIndex = removeHeader ? 1 : 0;
         const cellsMap = this.cells; // 缓存引用
-        
-        for (let i = startIndex; i < targetHashSheet.length; i++) {
-            const row = targetHashSheet[i];
+
+        for (let i = startIndex; i < filteredData.length; i++) {
+            const { originalIndex, row } = filteredData[i];
             const columns = [];
-            
+
             for (let j = 0; j < row.length; j++) {
                 const cellUid = row[j];
                 const cell = cellsMap.get(cellUid);
                 if (!cell) {
                     columns.push("");
                 } else {
-                    columns.push(cell.type === Cell.CellType.row_header ? (i - 1) : cell.data[key]);
+                    // 使用原始索引
+                    columns.push(cell.type === Cell.CellType.row_header ? originalIndex : cell.data[key]);
                 }
             }
-            
+
             rows.push(columns.join(','));
         }
-        
+
         return rows.join('\n') + "\n";
     }
 }
